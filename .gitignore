@@ -1,0 +1,13 @@
+# downloaded + derived inputs (see scripts/download_data.py, README "Data")
+/data/
+# fresh runs (the manuscript outputs live in results/manuscript/)
+/res/
+/logs/
+# local cluster config (copy from slurm_env.template.sh)
+slurm_env.sh
+# python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+*.part

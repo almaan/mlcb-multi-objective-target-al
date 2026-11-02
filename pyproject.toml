@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "geneal"
+version = "0.1.0"
+description = "Multi-objective active learning and portfolio hedging for selective target nomination"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+# Versions used for the manuscript run are listed in README.md.
+dependencies = [
+    "numpy",
+    "pandas",
+    "pyarrow",
+    "scipy",
+    "scikit-learn",
+    "torch",
+    "gpytorch",
+    "networkx",
+    "matplotlib",
+    "jinja2",
+]
+
+[project.optional-dependencies]
+# gene-text embeddings (scripts/embed_pubmedbert.py)
+embed = ["mygene", "sentence-transformers"]
+dev = ["pytest"]
+# static (vector) figure export; 0.2.1 bundles its own chromium
+figures = ["kaleido==0.2.1"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
