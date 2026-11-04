@@ -35,9 +35,18 @@ class BivariateALRunner:
         noise_e = self.noise.draw(n, np.random.default_rng((seed, 1)))
         noise_t = self.noise.draw(n, np.random.default_rng((seed, 2)))
         acq_rng = np.random.default_rng((seed, 99))
-        # objective space: maximize (eff, -tox). reference = slightly below worst.
+        # objective space: maximize (eff, -tox). `ref` (slightly below the worst
+        # gene genome-wide) uses ground truth, so it is ONLY used to score the
+        # revealed set in record() -- the evaluator, not the method. The EHVI
+        # acquisition uses `_acq_ref`, built each round from revealed labels only.
         ref = np.array([eff.min() - 0.1 * (np.ptp(eff) + 1e-9),
                         -(tox.max()) - 0.1 * (np.ptp(tox) + 1e-9)])
+
+        def _acq_ref(pts):
+            """Reference point from the revealed objective points: 10% of their
+            range below the worst observed value on each axis."""
+            lo, span = pts.min(axis=0), np.ptp(pts, axis=0) + 1e-9
+            return lo - 0.1 * span
 
         revealed = list(rng.permutation(n)[:n_initial])
         def obs(idx):
@@ -98,16 +107,17 @@ class BivariateALRunner:
                 _, tcov = joint_gp.predict_taskcov(X[cand])       # (m,2,2) in (eff,tox)
                 D = np.array([[1.0, 0.0], [0.0, -1.0]])           # flip tox -> -tox
                 cov = np.einsum("ij,mjk,kl->mil", D, tcov, D)
-            # current front from revealed objective points
-            pts = np.array([[eff[i], -tox[i]] for i in revealed])
+            # current front + reference point from the OBSERVED revealed labels
+            pts = np.array([obs(i) for i in revealed])
             front = pts[pareto_front(pts)]
+            acq_ref = _acq_ref(pts)
             # greedy-EHVI batch with fantasies (add picked mean to the front)
             picked_local = []
             cur_front = front.copy()
             avail = list(range(len(cand)))
             for _ in range(min(batch_size, len(cand))):
                 cov_av = cov[avail] if cov is not None else None
-                ehvi = mc_ehvi(mean[avail], std[avail], cur_front, ref,
+                ehvi = mc_ehvi(mean[avail], std[avail], cur_front, acq_ref,
                                acq_rng, self.ehvi_samples, cov=cov_av)
                 j = avail[int(np.argmax(ehvi))]
                 picked_local.append(j); avail.remove(j)

@@ -364,7 +364,7 @@ def _cloud_fig(d, methods, ceiling, fig_dir, name):
         _despine(ax)
         ax.set_title(LABELS.get(m, m), fontsize=9)
         if k // ncol == nrow - 1:
-            ax.set_xlabel("non-target efficacy →", fontsize=8)
+            ax.set_xlabel(f"{NT_AXIS} →", fontsize=8)
         if k % ncol == 0:
             ax.set_ylabel("target efficacy ↑", fontsize=8)
     for k in range(len(methods), nrow * ncol):
@@ -1216,7 +1216,7 @@ def _joint_eff_tox(scatter, src, tau, tau_mode, fig_dir):
     if ceil is not None:
         ax.axvline(ceil, ls="--", lw=1, color="#d1495b")
         axt.axvline(ceil, ls="--", lw=1, color="#d1495b")
-    ax.set_xlabel(f"non-target efficacy ({src})"); ax.set_ylabel("efficacy (target-line lethality)")
+    ax.set_xlabel(f"{NT_AXIS} ({src})"); ax.set_ylabel("efficacy (target-line lethality)")
     ax.annotate(f"Pearson r = {r:.2f}\nn = {len(tox):,}", xy=(0.04, 0.96),
                 xycoords="axes fraction", va="top", fontsize=9,
                 bbox=dict(boxstyle="round", fc="white", ec="#cccccc"))
@@ -1356,6 +1356,9 @@ _GLOSSARY = """
 """
 
 
+NT_AXIS = "non-target efficacy"   # set per run in build_ablation_report
+
+
 def build_ablation_report(df: pd.DataFrame, out_path, scatter=None, meta=None,
                           assayed=None, rounds=None, fig_dir=None,
                           group_counts=None, cv=None, multicontrast=None, launch_info=None,
@@ -1396,6 +1399,9 @@ def build_ablation_report(df: pd.DataFrame, out_path, scatter=None, meta=None,
     kdpp_sim = meta.get("kdpp_sim", "embedding")
     tau = float(meta.get("tau", 0.5))
     tau_mode = meta.get("tau_mode", "absolute")
+    global NT_AXIS   # axis wording follows the run's non-target effect definition
+    NT_AXIS = ("|non-target effect|" if meta.get("tox_transform") == "abs"
+               else "non-target efficacy")
     tox_sources = [s for s in ["contrast", "aggregate"] if s in set(df.tox_source)] \
         or sorted(df.tox_source.unique())
 

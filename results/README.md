@@ -1,14 +1,15 @@
 # Manuscript outputs
 
 `manuscript/` holds the raw outputs of the run reported in the paper, as written by
-`scripts/run_analysis.py` and combined with `scripts/merge_ab_report.py`.
+`scripts/run_analysis.py` (12 per-line shards combined with `scripts/aggregate_ablation.py`).
 `manuscript/tables/` holds the tables recomputed from them by
 `scripts/reproduce_tables.py`.
 
 Conventions used in every file:
 - **efficacy** = lethality in the target line (−Chronos; higher = more lethal).
-- **toxicity** = lethality in the non-target (contrast) line. The manuscript calls this
-  "non-target efficacy" or "non-target activity".
+- **toxicity** = absolute knockout effect \|t\| in the non-target (contrast) line
+  (`tox_transform: "abs"` in `meta.json`). The manuscript calls this the "non-target
+  effect" or "non-target activity"; a nominee is safe if toxicity ≤ τ = 0.5.
 - **tox_source** names the non-target population. `contrast_1/2/3` are ACH-002462,
   ACH-001310 and ACH-000133. `aggregate` is an extra source that the manuscript
   tables do not use.
@@ -23,8 +24,7 @@ Conventions used in every file:
 | `assayed.parquet` | source × acquisition × line × seed | metrics of the 120 assayed genes |
 | `gp_cv.parquet` | line × fold | GP 5-fold cross-validation (R², Spearman, RMSE) |
 | `group_counts.parquet` | source × base × operator × line × seed × complex | CORUM complex counts of nominees (diversity barplot) |
-| `scatter.parquet` | gene × line × source | true efficacy / toxicity of every candidate gene, GP-predicted toxicity, and a `pick_<method>` flag per Section-2 method (Figure 1, Figure A.1) |
-| `multicontrast.parquet` | line × seed × method | exploratory multi-contrast EHVI; not reported in the paper |
+| `scatter.parquet` | gene × line × source | true efficacy / toxicity of every candidate gene (Figure A.1), a `pick_<method>` flag per Section-2 method for the **first seed only** (Figure 1), and out-of-fold kNN (`pred_toxicity`) / ridge (`pred_toxicity_lin`) predictions of toxicity from the embeddings (diagnostic) |
 
 Method keys in `ablation.parquet` / `rounds.parquet` map to manuscript labels as follows:
 

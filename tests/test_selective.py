@@ -1,7 +1,9 @@
 # tests/test_selective.py
 import numpy as np
 import pandas as pd
-from geneal.data.selective import common_essential_score, build_selective_dataset
+import pytest
+from geneal.data.selective import (common_essential_score, build_selective_dataset,
+                                   toxicity_vector)
 
 
 def _ge(tmp_path):
@@ -34,3 +36,16 @@ def test_build_selective_target_downweights_common_essential(tmp_path):
     # so B (selective) should outrank A (pan-essential/toxic)
     assert ds.target[i_b] > ds.target[i_a]
     assert "common_essential" in aux
+
+
+def test_toxicity_vector_transform(tmp_path):
+    ge = pd.read_parquet(_ge(tmp_path))
+    names = ["A (1)", "B (2)", "C (3)"]
+    # contrast L3: effects (-2.0, 0.0, 0.1) -> signed lethality (2.0, 0.0, -0.1)
+    signed = toxicity_vector(ge, names, "contrast", contrast_line="L3")
+    assert np.allclose(signed, [2.0, 0.0, -0.1])
+    # abs: the growth effect of C counts as a (positive) non-target effect
+    absval = toxicity_vector(ge, names, "contrast", contrast_line="L3", transform="abs")
+    assert np.allclose(absval, [2.0, 0.0, 0.1])
+    with pytest.raises(ValueError):
+        toxicity_vector(ge, names, "contrast", contrast_line="L3", transform="clip")

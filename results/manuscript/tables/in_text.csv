@@ -1,4 +1,4 @@
 statistic,value
 GP CV r2,0.381±0.007
 GP CV spearman,0.350±0.008
-target vs non-target efficacy r,0.817
+target vs non-target efficacy r,0.8045

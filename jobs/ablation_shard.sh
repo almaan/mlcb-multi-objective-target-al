@@ -21,6 +21,7 @@ EMB="${EMB:-data/processed/embeddings/pubmedbert_all.parquet}"
 PANEL_A="${PANEL_A:-none}"; PANEL_B="${PANEL_B:-none}"
 SEEDS="${SEEDS:-0 1}"; K="${K:-30}"; ROUNDS="${ROUNDS:-8}"; BATCH="${BATCH:-10}"
 NINIT="${NINIT:-40}"; TAU="${TAU:-0.5}"; ANALYSES="${ANALYSES:-both}"
+TOX_TRANSFORM="${TOX_TRANSFORM:-abs}"
 JOINT_ARG=""; [ -n "${JOINT:-}" ] && JOINT_ARG="--joint-gp"
 
 LINE=$(sed -n "$((SLURM_ARRAY_TASK_ID + 1))p" "$ROOT/lines.txt")
@@ -29,6 +30,6 @@ python -u scripts/run_analysis.py \
     --embeddings "$EMB" --panel-a "$PANEL_A" --panel-b "$PANEL_B" $JOINT_ARG --no-report \
     --cell-lines "$LINE" --contrast-lines $CONTRAST --seeds $SEEDS --K "$K" \
     --n-initial "$NINIT" --n-rounds "$ROUNDS" --batch "$BATCH" --tau "$TAU" \
-    --analyses "$ANALYSES" \
+    --analyses "$ANALYSES" --tox-transform "$TOX_TRANSFORM" \
     --out-root "$ROOT" --run-name "shard_${SLURM_ARRAY_TASK_ID}"
 echo "SHARD DONE"

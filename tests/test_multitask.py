@@ -42,3 +42,20 @@ def test_captures_positive_task_covariation():
     s = MultiTaskGPR(n_iters=150).fit(X, Y)
     m, _ = s.predict(X)
     assert float(np.corrcoef(m[:, 0], m[:, 1])[0, 1]) > 0.5
+
+
+def test_multitask_fit_is_deterministic_and_leaves_global_rng():
+    # The task-covariance factor is randomly initialized; fits must not depend on
+    # the global torch RNG state, and must not advance it.
+    import torch
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(40, 8)); y = X[:, 0] + 0.1 * rng.normal(size=40)
+    Y = np.column_stack([y, -y + 0.3 * rng.normal(size=40)])
+    Xt = rng.normal(size=(25, 8))
+    torch.manual_seed(1); a = MultiTaskGPR(n_iters=30).fit(X, Y)
+    state = torch.get_rng_state()
+    ma, va = a.predict_taskcov(Xt)
+    assert torch.equal(state, torch.get_rng_state())
+    torch.manual_seed(2); b = MultiTaskGPR(n_iters=30).fit(X, Y)
+    mb, vb = b.predict_taskcov(Xt)
+    assert np.array_equal(ma, mb) and np.array_equal(va, vb)

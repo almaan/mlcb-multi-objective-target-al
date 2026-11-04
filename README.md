@@ -133,7 +133,8 @@ Fixed configuration (manuscript):
 | seeds | 0, 1 |
 | initial set / rounds / batch | 40 / 8 / 10 (120 genes assayed) |
 | nominated cohort K | 30 |
-| threshold τ | 0.5 (absolute, on the Chronos lethality scale) |
+| non-target effect | absolute knockout effect \|t\| in the contrast line (`--tox-transform abs`, the default) |
+| threshold τ | 0.5 on \|t\| (absolute Chronos scale; two-sided on the signed effect) |
 | surrogate | joint multi-task GP (Matérn-5/2) over (efficacy, non-target effect) |
 | candidate pool | full genome for both sections |
 
@@ -141,10 +142,10 @@ Fixed configuration (manuscript):
 
 ```bash
 python scripts/run_analysis.py \
-  --joint-gp --n-cell-lines 12 \
+  --joint-gp --n-cell-lines 12 --tox-transform abs --analyses both \
   --contrast-lines ACH-002462 ACH-001310 ACH-000133 \
-  --seeds 0 1 --K 30 --n-initial 40 --n-rounds 8 --batch 10 --tau 0.5
-# -> res/runs_ablation/<timestamp>/  (ablation.parquet, rounds.parquet, ..., report.html)
+  --seeds 0 1 --K 30 --n-initial 40 --n-rounds 8 --batch 10 --tau 0.5 --export-figs
+# -> res/runs_ablation/<timestamp>/  (ablation.parquet, rounds.parquet, ..., report.html, figs/)
 ```
 
 To run one target line (for example as a parallel job), add `--cell-lines <ModelID>
@@ -156,6 +157,7 @@ combine them with `python scripts/aggregate_ablation.py <parent_dir>`.
 ```bash
 cp slurm_env.template.sh slurm_env.sh     # fill in partition / account / conda paths
 CONTRASTS=3 CONTRAST_IDS="ACH-002462 ACH-001310 ACH-000133" JOINT=1 SEEDS="0 1" \
+  ANALYSES=both TOX_TRANSFORM=abs PANEL_A=none PANEL_B=none EXPORTFIGS=1 \
   TAG=mlcb bash scripts/launch_ablation_sweep.sh 12
 ```
 
@@ -165,22 +167,22 @@ Then recompute the tables from the new run:
 python scripts/reproduce_tables.py --run res/runs_ablation/<run_dir>
 ```
 
+Figures are written to `<run_dir>/figs/` (`--export-figs` / `EXPORTFIGS=1`):
+`gene_cloud_contrast.{pdf,png}` is Figure 1 and `ds_jointeff_contrast.{pdf,png}` is
+Figure A.1.
+
 ### How the manuscript result was produced
 
-Section 2 (Table 1, Table A.1) and Section 3 (Tables 2, A.2) come from two runs of the
-same code and configuration: the first with `--analyses both`, the second with
-`--analyses b` (genome-wide hedging). `scripts/merge_ab_report.py` combined them
-without recomputing anything:
+All manuscript tables and figures come from **one** run of the SLURM command above
+(both sections in the same run, `--tox-transform abs`). Section 3 reuses Section 2's
+acquisition histories, so the unhedged rows of Table 2 are the same nominations as the
+corresponding rows of Table 1. `results/manuscript/` holds that run's outputs unchanged.
 
-```bash
-python scripts/merge_ab_report.py --a-run <run_1> --b-run <run_2> --out <merged_dir>
-```
-
-The two runs fit their GP surrogates independently, and GP training is not bit-exact
-across runs. As a result, the unhedged rows of Table 2 differ slightly from the
-corresponding rows of Table 1 (for example, EHVI target efficacy 1.395 vs 1.259). A
-fresh re-run should match the manuscript within that run-to-run variation, not
-digit for digit.
+The GP surrogates seed their own (forked) torch random number generator, and every
+acquisition and nomination step uses an explicit, seeded numpy generator, so a run is
+deterministic for given inputs. Re-running on the same inputs with the library versions
+listed above should reproduce `results/manuscript/`; floating-point differences across
+hardware or library versions can change individual picks and hence the last digits.
 
 ---
 
@@ -188,9 +190,10 @@ digit for digit.
 
 | component | code |
 |---|---|
-| exact GP (Matérn-5/2) and joint multi-task GP | `src/geneal/models/surrogate.py`, `models/multitask.py` |
+| non-target effect definition (\|t\| or signed) | `src/geneal/data/selective.py` (`toxicity_vector`) |
+| exact GP (Matérn-5/2) and joint multi-task GP (seeded, deterministic fits) | `src/geneal/models/surrogate.py`, `models/multitask.py` |
 | Monte-Carlo EHVI, hypervolume, Pareto fronts | `src/geneal/models/multiobjective.py` |
-| EHVI active-learning loop (kriging-believer batches, top-150 UCB shortlist per round) | `src/geneal/runner/bivariate.py` |
+| EHVI active-learning loop (kriging-believer batches; per round: top-150 shortlist by μ+σ summed over objectives, reference point and front from assayed labels) | `src/geneal/runner/bivariate.py` |
 | greedy / random / cluster / info-diverse acquisition, per-round filter | `src/geneal/runner/ablation.py` (`acquire`, `_safe_candidates`) |
 | nomination: τ filter, EHVI-EHVI hypervolume selection, k-DPP hedging | `src/geneal/runner/ablation.py` (`nominate`), `models/hedged_selection.py` |
 | concentration, robustness, risk, N_eff | `src/geneal/metrics/portfolio.py` |

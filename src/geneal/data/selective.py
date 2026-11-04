@@ -80,11 +80,16 @@ def rank_contrast_lines(gene_effect: pd.DataFrame, thresh: float = -0.5,
 
 def toxicity_vector(gene_effect: pd.DataFrame, gene_names, source: str,
                     target_line: str = None, contrast_line: str = None,
-                    thresh: float = -0.5) -> np.ndarray:
+                    thresh: float = -0.5, transform: str = "signed") -> np.ndarray:
     """Toxicity per gene, aligned to `gene_names` (DepMap labels), for a source:
       'aggregate' -> common-essential, EXCLUDING the target line (leakage fix).
       'contrast'  -> lethality in the fixed contrast line.
-    Missing values are filled with the source's median (neutral)."""
+    Missing values are filled with the source's median (neutral).
+
+    `transform`: 'signed' (default) keeps the signed lethality, so a knockout that
+    makes the contrast line GROW (negative lethality) scores as safer than a
+    neutral one. 'abs' uses |lethality|: any perturbation of the contrast line,
+    killing or growth, counts as a non-target effect."""
     if source == "aggregate":
         s = common_essential_score(gene_effect, thresh, exclude=target_line)
     elif source == "contrast":
@@ -92,8 +97,13 @@ def toxicity_vector(gene_effect: pd.DataFrame, gene_names, source: str,
     else:
         raise ValueError(f"unknown toxicity source {source!r}")
     med = float(s.median())
-    return np.array([float(s.get(g, med)) if pd.notna(s.get(g, med)) else med
-                     for g in gene_names], dtype=float)
+    t = np.array([float(s.get(g, med)) if pd.notna(s.get(g, med)) else med
+                  for g in gene_names], dtype=float)
+    if transform == "abs":
+        return np.abs(t)
+    if transform != "signed":
+        raise ValueError(f"unknown toxicity transform {transform!r}")
+    return t
 
 
 def build_selective_dataset(gene_effect: pd.DataFrame, embeddings: pd.DataFrame,

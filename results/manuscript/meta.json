@@ -30,6 +30,8 @@
   "acq_score": "ucb",
   "tau_mode": "absolute",
   "joint_gp": true,
+  "analyses": "both",
+  "tox_transform": "abs",
   "tox_sources": [
     "contrast_1",
     "contrast_2",
@@ -53,10 +55,5 @@
     "ACH-001513",
     "ACH-001194",
     "ACH-003184"
-  ],
-  "analyses": "both",
-  "merged_from": {
-    "a_run": "res/runs_ablation/sweep_joint3normal_20260626-190909",
-    "b_run": "res/runs_ablation/sweep_genomeB_only_20260702-035548"
-  }
+  ]
 }

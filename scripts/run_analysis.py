@@ -176,6 +176,10 @@ def main():
                          "(default, tunable); 'string' = sparse STRING. Never outcome similarity.")
     ap.add_argument("--acq-score", choices=["ucb", "ei"], default="ucb",
                     help="greedy-efficacy acquisition score (UCB=mu+2sigma, or EI)")
+    ap.add_argument("--tox-transform", choices=["signed", "abs"], default="abs",
+                    help="non-target effect definition: 'abs' |lethality| (default, as in the "
+                         "manuscript: any perturbation of the contrast line counts as a non-target "
+                         "effect) or 'signed' lethality (growth in the contrast line counts as favorable)")
     ap.add_argument("--joint-gp", action="store_true",
                     help="learned-safety methods (trunc_pred, ehvi) use a JOINT multitask "
                          "GP over (efficacy, toxicity) instead of two independent GPs. "
@@ -265,6 +269,7 @@ def main():
     emb_b = subset_emb(args.panel_b)        # Analysis B candidate pool (default 5k subset)
     print(f"Analysis A panel: {len(emb_a)} genes ({args.panel_a}); "
           f"Analysis B panel: {len(emb_b)} genes ({args.panel_b})")
+    same_pool = list(emb_a.index) == list(emb_b.index)   # A and B share the candidate pool
     embset = set(emb_a.index)
     labs = [g for g in ge.index if parse_entrez(g) in embset]
 
@@ -322,7 +327,8 @@ def main():
         eff = np.asarray(ds.target, float)
         mem = corum_membership(ds.gene_names)
         tox = {key: toxicity_vector(ge, ds.gene_names, stype, target_line=cl,
-                                    contrast_line=cline, thresh=args.thresh)
+                                    contrast_line=cline, thresh=args.thresh,
+                                    transform=args.tox_transform)
                for key, (stype, cline) in tox_specs.items()}
         return X, eff, mem, tox, ds.gene_names
 
@@ -373,6 +379,7 @@ def main():
                 mc_rows += mc_run_line(ge, emb_a, cl, contrast_lines, args.mc_n_initial,
                                        args.K, seed, args.mc_hv_samples)
             # ===================== Analysis A (full-genome pool) =====================
+            histA_by_src = {}
             histA = ({k: run_acquisition(k, Xa, effa, None, seed=seed, score=args.acq_score,
                                          return_history=True, **common)[1]
                       for k in _TOX_INDEP_ACQ} if do_a else {})
@@ -388,6 +395,7 @@ def main():
                                                joint_factory=joint_factory, acq_safety=acqsaf,
                                                tau=args.tau, tau_mode=args.tau_mode,
                                                return_history=True, **common)[1]
+                histA_by_src[src] = dict(histA)   # per-contrast snapshot (reused by B)
                 for k, h in histA.items():
                     m = evaluate(h[-1], effa, toxa, mema, tox_ceiling=ceil_a)
                     assayed_rows.append(dict(tox_source=src, acq=k, cell_line=cl,
@@ -439,13 +447,20 @@ def main():
                     scatters.append(sc)
 
             # ===================== Analysis B (subset pool) =====================
-            # tox-independent B acquisitions (run once)
-            histB = ({k: run_acquisition(k, Xb, effb, None, seed=seed, score=args.acq_score,
-                                         return_history=True, **common)[1]
-                      for k in B_ACQ if ACQ_SPECS[k][1] == "none" and k != "ehvi"} if do_b else {})
+            # When A ran on the same candidate pool, B reuses A's acquisition
+            # histories, so the unhedged rows of Tables 1 and 2 are the same runs.
+            reuse_a = do_a and same_pool
+            # tox-independent B acquisitions (run once per seed)
+            histB_indep = ({k: run_acquisition(k, Xb, effb, None, seed=seed, score=args.acq_score,
+                                               return_history=True, **common)[1]
+                            for k in B_ACQ if ACQ_SPECS[k][1] == "none" and k != "ehvi"}
+                           if do_b and not reuse_a else {})
             for src in (tox_sources if do_b else []):
                 toxb = toxb_by_src[src]; ceil_b = _tox_threshold(toxb, args.tau, args.tau_mode)
                 pareto_b = set(int(i) for i in pareto_indices(np.column_stack([effb, -toxb])))
+                # tox-dependent acquisitions are re-run for EVERY source: they are
+                # steered by this source's non-target effect
+                histB = histA_by_src[src] if reuse_a else dict(histB_indep)
                 for k in [a for a in B_ACQ if a not in histB]:    # tox-dependent B acqs
                     kind, acqsaf = ACQ_SPECS[k]
                     histB[k] = run_acquisition(kind, Xb, effb, toxb, seed=seed,
@@ -523,6 +538,7 @@ def main():
                 K=args.K, tau=args.tau, cap=args.cap, n_rounds=args.n_rounds,
                 batch=args.batch, kdpp_sim=args.kdpp_sim, acq_score=args.acq_score,
                 tau_mode=args.tau_mode, joint_gp=bool(args.joint_gp), analyses=args.analyses,
+                tox_transform=args.tox_transform,
                 tox_sources=tox_sources, contrast_line=contrast_line,
                 contrast_lines=contrast_lines, contrast_ranked=contrast_ranked)
     (out / "meta.json").write_text(json.dumps(meta, indent=2))

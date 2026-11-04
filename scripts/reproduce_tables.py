@@ -103,7 +103,7 @@ def in_text(run):
     if sc.exists():
         s = pd.read_parquet(sc, columns=["efficacy", "toxicity", "tox_source"])
         s = s[s.tox_source.str.startswith("contrast")]
-        out["target vs non-target efficacy r"] = f"{np.corrcoef(s.efficacy, s.toxicity)[0, 1]:.3f}"
+        out["target vs non-target efficacy r"] = f"{np.corrcoef(s.efficacy, s.toxicity)[0, 1]:.4f}"
     return pd.DataFrame([{"statistic": k, "value": v} for k, v in out.items()])
 
 

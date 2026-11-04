@@ -37,3 +37,13 @@ def test_bnn_predict_shapes():
     assert mean.shape == (len(Xte),)
     assert std.shape == (len(Xte),)
     assert np.all(std >= 0)
+
+
+def test_gpr_fit_is_deterministic():
+    import torch
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(40, 8)); y = X[:, 0] + 0.1 * rng.normal(size=40)
+    Xt = rng.normal(size=(25, 8))
+    torch.manual_seed(1); a = GPRSurrogate(n_iters=30).fit(X, y).predict(Xt)
+    torch.manual_seed(2); b = GPRSurrogate(n_iters=30).fit(X, y).predict(Xt)
+    assert np.array_equal(a[0], b[0]) and np.array_equal(a[1], b[1])

@@ -24,8 +24,10 @@ import numpy as np
 
 class MultiTaskGPR:
     def __init__(self, n_iters: int = 120, lr: float = 0.1, rank: int = 1,
-                 nu: float = 2.5, num_tasks: int = 2, device: str = "cpu") -> None:
+                 nu: float = 2.5, num_tasks: int = 2, device: str = "cpu",
+                 seed: int = 0) -> None:
         self.n_iters = n_iters
+        self.seed = seed   # torch RNG seed for init + training (reproducible fits)
         self.lr = lr
         self.rank = rank
         self.nu = nu
@@ -67,14 +69,19 @@ class MultiTaskGPR:
         self._y_mean, self._y_std = Y.mean(0), Y.std(0) + 1e-8
         tx = torch.tensor((X - self._x_mean) / self._x_std, dtype=torch.float32, device=self.device)
         ty = torch.tensor((Y - self._y_mean) / self._y_std, dtype=torch.float32, device=self.device)
-        self._model, self._likelihood = self._build(tx, ty)
-        self._model.train(); self._likelihood.train()
-        opt = torch.optim.Adam(self._model.parameters(), lr=self.lr)
-        mll = gpytorch.mlls.ExactMarginalLogLikelihood(self._likelihood, self._model)
-        for _ in range(self.n_iters):
-            opt.zero_grad()
-            loss = -mll(self._model(tx), ty)
-            loss.backward(); opt.step()
+        # The MultitaskKernel's task-covariance factor is randomly initialized from
+        # torch's global RNG, so unseeded fits on identical data differ. Seed a
+        # forked RNG: deterministic fits without touching the caller's RNG state.
+        with torch.random.fork_rng():
+            torch.manual_seed(self.seed)
+            self._model, self._likelihood = self._build(tx, ty)
+            self._model.train(); self._likelihood.train()
+            opt = torch.optim.Adam(self._model.parameters(), lr=self.lr)
+            mll = gpytorch.mlls.ExactMarginalLogLikelihood(self._likelihood, self._model)
+            for _ in range(self.n_iters):
+                opt.zero_grad()
+                loss = -mll(self._model(tx), ty)
+                loss.backward(); opt.step()
         self._model.eval(); self._likelihood.eval()
         return self
 
@@ -82,7 +89,8 @@ class MultiTaskGPR:
         import torch, gpytorch
         X = np.asarray(X, dtype=np.float64)
         tx = torch.tensor((X - self._x_mean) / self._x_std, dtype=torch.float32, device=self.device)
-        with torch.no_grad(), gpytorch.settings.fast_pred_var():
+        with torch.random.fork_rng(), torch.no_grad(), gpytorch.settings.fast_pred_var():
+            torch.manual_seed(self.seed)   # fast_pred_var's Lanczos may draw probes
             return self._likelihood(self._model(tx))
 
     def predict(self, X):
@@ -117,4 +125,5 @@ class MultiTaskGPR:
 
     def clone(self) -> "MultiTaskGPR":
         return MultiTaskGPR(n_iters=self.n_iters, lr=self.lr, rank=self.rank,
-                            nu=self.nu, num_tasks=self.num_tasks, device=self.device)
+                            nu=self.nu, num_tasks=self.num_tasks, device=self.device,
+                            seed=self.seed)
