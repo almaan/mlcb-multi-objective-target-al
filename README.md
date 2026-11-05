@@ -7,7 +7,7 @@ budget. It then **hedges** the nominated cohort against mechanistic redundancy u
 prior biological knowledge (CORUM protein complexes).
 
 All experiments use the DepMap CRISPR gene-effect resource as an offline oracle.
-Ground-truth lethality is hidden and revealed only when the active-learning loop
+Ground-truth gene effects are hidden and revealed only when the active-learning loop
 "assays" a batch of genes.
 
 This repository has two uses:
