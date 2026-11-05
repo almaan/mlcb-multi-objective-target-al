@@ -24,7 +24,7 @@ Conventions used in every file:
 | `assayed.parquet` | source × acquisition × line × seed | metrics of the 120 assayed genes |
 | `gp_cv.parquet` | line × fold | GP 5-fold cross-validation (R², Spearman, RMSE) |
 | `group_counts.parquet` | source × base × operator × line × seed × complex | CORUM complex counts of nominees (diversity barplot) |
-| `scatter.parquet` | gene × line × source | true efficacy / toxicity of every candidate gene (Figure A.1), a `pick_<method>` flag per Section-2 method for the **first seed only** (Figure 1), and out-of-fold kNN (`pred_toxicity`) / ridge (`pred_toxicity_lin`) predictions of toxicity from the embeddings (diagnostic) |
+| `scatter.parquet` | gene × line × source | true efficacy / toxicity of every candidate gene (Figure A.2), a `pick_<method>` flag per Section-2 method for the **first seed only** (Figure A.1), and out-of-fold kNN (`pred_toxicity`) / ridge (`pred_toxicity_lin`) predictions of toxicity from the embeddings (diagnostic) |
 
 Method keys in `ablation.parquet` / `rounds.parquet` map to manuscript labels as follows:
 

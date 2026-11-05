@@ -168,8 +168,8 @@ python scripts/reproduce_tables.py --run res/runs_ablation/<run_dir>
 ```
 
 Figures are written to `<run_dir>/figs/` (`--export-figs` / `EXPORTFIGS=1`):
-`gene_cloud_contrast.{pdf,png}` is Figure 1 and `ds_jointeff_contrast.{pdf,png}` is
-Figure A.1.
+`gene_cloud_contrast.{pdf,png}` is Figure A.1 and `ds_jointeff_contrast.{pdf,png}` is
+Figure A.2.
 
 ### How the manuscript result was produced
 
